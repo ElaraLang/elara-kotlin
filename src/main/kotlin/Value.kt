@@ -1,3 +1,9 @@
 import type.ElaraType
 
-data class Value<T>(val type: ElaraType<T>, val value: T)
+data class Value(val type: ElaraType, val value: Any)
+{
+    override fun toString(): String
+    {
+        return "$value : $type"
+    }
+}

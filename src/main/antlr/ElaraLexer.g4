@@ -18,12 +18,11 @@ tokens { INDENT, DEDENT }
   }
 }
 
-NewLine : ('\r'? '\n' ' '*);
+NewLine : ('\r'? '\n' '\t'* | '\n' ' '*);
 
 Semicolon : ';';
 
-fragment Space: [ \t];
-Whitespace : Space+ -> skip;
+Whitespace : [ \t] -> skip;
 
 InlineComment : '//' ~[\r\n]* -> skip;
 MultiComment : '/*' .+? '*/' -> skip;
@@ -47,6 +46,8 @@ Def : 'def';
 Mut: 'mut';
 Type: 'type';
 Class: 'class';
+Where: 'where';
+Instance: 'instance';
 
 // Symbols
 Comma: ',';

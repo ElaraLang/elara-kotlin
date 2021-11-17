@@ -2,9 +2,15 @@ parser grammar ElaraParser;
 
 options { tokenVocab=ElaraLexer; }
 
-defClause : Def VarIdentifier Colon type;
-letClause : Let VarIdentifier Equals expression;
-variable : (defClause separator)? letClause;
+defClause : Def variableIdentifier Colon type separator;
+letClause : Let variableIdentifier Equals expression separator;
+variable : (defClause)? letClause;
+
+operatorIdentifier : OperatorIdentifier+ ;
+operatorVariable : '(' operatorIdentifier ')' ;
+variableIdentifier : VarIdentifier | operatorVariable ;
+
+typeIdentifier : VarIdentifier ;
 
 unit : LParen RParen;
 
@@ -12,7 +18,7 @@ separator : (NewLine | Semicolon)+;
 
 // Types
 type : unit #UnitType
-    | VarIdentifier #GenericType
+    | typeIdentifier #GenericType
     | typeName typeName+ #RealizedGenericType
     | type PureArrow type # PureFunctionType
     | type ImpureArrow type #ImpureFunctionType
@@ -24,7 +30,7 @@ type : unit #UnitType
 
 typeName :
       TypeIdentifier #NormalTypeName
-    | VarIdentifier #GenericTypeName;
+    | typeIdentifier #GenericTypeName;
 
 typeAlias : type;
 typeConstructor :
@@ -35,8 +41,22 @@ sumType : typeConstructor (Bar typeConstructor)*;
 recordTypeField : VarIdentifier Colon type;
 recordType : LBrace recordTypeField (Comma recordTypeField)* RBrace;
 
-typeDeclaration : Type TypeIdentifier VarIdentifier* Equals typeDeclarationValue;
-typeDeclarationValue : typeAlias | sumType | recordType;
+typeDeclaration : Type TypeIdentifier typeIdentifier* Equals typeDeclarationValue;
+typeDeclarationValue :
+    typeAlias #TypeAliasValue
+    | sumType #SumTypeValue
+    | recordType # RecordTypeValue
+    ;
+
+typeClassDeclaration : Type Class TypeIdentifier typeIdentifier Where typeClassBody;
+typeClassBody : blockOpen typeClassValue* blockClose;
+typeClassValue : defClause | variable;
+
+typeClassInstanceDeclaration : Instance TypeIdentifier TypeIdentifier Where typeClassInstanceBody;
+typeClassInstanceBody : blockOpen variable blockClose;
+
+blockOpen : INDENT ;
+blockClose : DEDENT ;
 
 // Expressions
 
@@ -47,7 +67,11 @@ expression :
     | CharLiteral #CharExpression
     | StringLiteral #StringExpression
     | LSquareParen (expression (Comma expression)*)? RSquareParen #ListExpression
+    | LParen expression RParen #ParenExpression
     | LParen (expression (Comma expression)+) RParen #TupleExpression
+    | expression (<assoc=left> expression)+ #FunctionApplicationExpression
+    | expression operatorIdentifier expression #OperatorApplicationExpression
+    | variableIdentifier # VariableExpression
 ;
 
 // A complete compilation unit
@@ -55,8 +79,10 @@ elaraLine :
     variable #VariableLine
     | typeDeclaration # TypeDeclarationLine
     | expression # ExpressionLine
+    | typeClassDeclaration #TypeClassDeclarationLine
+    | typeClassInstanceDeclaration # TypeClassInstanceDeclarationLine
     ;
 
-line : elaraLine separator;
+//line : elaraLine;
 
-elaraFile : line*;
+elaraFile : elaraLine*;

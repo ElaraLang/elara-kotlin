@@ -23,18 +23,11 @@ tasks.test {
     useJUnitPlatform()
 }
 
-//tasks.generateGrammarSource {
-//    maxHeapSize = "64m"
-//
-//    // Keep a copy of generated sources
-//    doLast {
-//        println("Copying generated grammar lexer/parser files to main directory.")
-//        copy {
-//            from("${buildDir}/generated-src/antlr/main")
-//            into("generated-src/main/java")
-//        }
-//    }
-//}
+tasks {
+    compileKotlin {
+        dependsOn(generateGrammarSource)
+    }
+}
 
 tasks.withType<KotlinCompile>() {
     kotlinOptions.jvmTarget = "16"
