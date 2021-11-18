@@ -1,13 +1,18 @@
 package type
 
-import ElaraContext
-import Value
+import runtime.Value
+import runtime.scope.ElaraContext
 
 sealed interface ElaraType
 {
     fun isAssignableTo(other: ElaraType): Boolean
     {
         return this == other
+    }
+
+    fun concreteType(): ElaraType
+    {
+        return this
     }
 }
 
@@ -63,7 +68,7 @@ data class DelegateType(val name: String, val delegateType: ElaraType) : ElaraTy
 {
     override fun toString(): String
     {
-        return "name ==> $delegateType"
+        return "name ($delegateType)"
     }
 }
 
@@ -95,16 +100,20 @@ data class ImpureFunctionType(override val input: ElaraType, override val output
     }
 }
 
-class ElaraFunction(val type: FunctionType, val body: (ElaraContext, List<Value>) -> Value)
+class ElaraFunction(val type: FunctionType, val parameterName: String, val body: (ElaraContext, Value) -> Value)
 {
     override fun toString(): String
     {
         return "#Function"
     }
 
-    fun call(context: ElaraContext, args: List<Value>): Value
+    fun call(context: ElaraContext, argument: Value): Value
     {
-        return body(context, args)
+        context.enterScope(type.toString())
+        context.registerVariable(parameterName, argument)
+        val res = body(context, argument)
+        context.exitScope()
+        return res
     }
 }
 

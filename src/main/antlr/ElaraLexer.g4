@@ -18,11 +18,11 @@ tokens { INDENT, DEDENT }
   }
 }
 
-NewLine : ('\r'? '\n' '\t'* | '\n' ' '*);
+NewLine : ('\r'? ('\n' '\t'*) | ('\n' ' '*));
+Whitespace : [ \t] -> skip;
 
 Semicolon : ';';
 
-Whitespace : [ \t] -> skip;
 
 InlineComment : '//' ~[\r\n]* -> skip;
 MultiComment : '/*' .+? '*/' -> skip;

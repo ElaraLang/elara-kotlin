@@ -4,6 +4,6 @@ class TypeClassConstraint(val clazz : TypeClass, val name: String, val type : El
 {
     override fun toString(): String
     {
-        return "($clazz $name) :> $type"
+        return "(${clazz.name} $name) :> $type"
     }
 }

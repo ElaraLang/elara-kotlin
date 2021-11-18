@@ -1,3 +1,6 @@
+import runtime.ConsList.Companion.toConsList
+import runtime.Value
+import runtime.scope.ElaraContext
 import type.*
 
 fun interpret(elaraFile: ElaraParser.ElaraFileContext, context: ElaraContext = ElaraContext()): ElaraContext
@@ -8,19 +11,28 @@ fun interpret(elaraFile: ElaraParser.ElaraFileContext, context: ElaraContext = E
     return context
 }
 
-private fun interpret(line: ElaraParser.ElaraLineContext, context: ElaraContext)
+private fun interpret(line: ElaraParser.ElaraLineContext, context: ElaraContext): Value?
 {
     when (line)
     {
-        is ElaraParser.VariableLineContext -> interpret(line.variable(), context)
-        is ElaraParser.TypeDeclarationLineContext -> interpret(line.typeDeclaration(), context)
-        is ElaraParser.ExpressionLineContext -> interpret(line.expression(), context)
-        is ElaraParser.TypeClassDeclarationLineContext -> interpret(line.typeClassDeclaration(), context)
-        is ElaraParser.TypeClassInstanceDeclarationLineContext -> interpret(line.typeClassInstanceDeclaration(),
-            context)
+        is ElaraParser.StatementLineContext -> interpret(line.statement(), context)
+        is ElaraParser.ExpressionLineContext -> return interpret(line.expression(), context)
         else -> throw UnsupportedOperationException(line.javaClass.name)
     }
+    return null
+}
 
+fun interpret(statement: ElaraParser.StatementContext, context: ElaraContext)
+{
+    when (statement)
+    {
+        is ElaraParser.TypeDeclarationStatementContext -> interpret(statement.typeDeclaration(), context)
+        is ElaraParser.TypeClassDeclarationStatementContext -> interpret(statement.typeClassDeclaration(), context)
+        is ElaraParser.TypeClassInstanceDeclarationStatementContext -> interpret(statement.typeClassInstanceDeclaration(),
+            context)
+        is ElaraParser.VariableDeclarationStatementContext -> interpret(statement.variable(), context)
+        else -> throw UnsupportedOperationException(statement.javaClass.name)
+    }
 }
 
 private fun interpret(
@@ -28,19 +40,18 @@ private fun interpret(
     context: ElaraContext,
 )
 {
-    val clazz = context.types[typeClassInstanceDeclaration.TypeIdentifier().text] as? TypeClass
+    val clazz = context.getType(typeClassInstanceDeclaration.TypeIdentifier().text) as? TypeClass
         ?: throw IllegalArgumentException("Not a type class")
-    val type = getType(typeClassInstanceDeclaration.type(), context)
-    val instances = (context.instances[clazz] ?: mapOf()).toMutableMap()
+    val type = getType(typeClassInstanceDeclaration.type(), context).concreteType()
     val instance = TypeClassInstance(clazz, type,
         typeClassInstanceDeclaration.typeClassInstanceBody().variable()
-            .associate {
-                val name = getVariableIdentifier(it.letClause().variableIdentifier())
-                clazz.members.find { it.name == name }!! to interpret(it.letClause().expression(), context)
+            .associate { variable ->
+                val name = getVariableIdentifier(variable.letClause().variableIdentifier())
+                clazz.members.find { it.name == name }!! to interpret(variable.letClause().letBody().expression(),
+                    context)
             }
     )
-    instances[type] = instance
-    context.instances[clazz] = instances
+    context.registerInstance(clazz, instance)
 }
 
 private fun getVariableIdentifier(identifier: ElaraParser.VariableIdentifierContext): String
@@ -56,25 +67,25 @@ private fun interpret(typeClassDeclaration: ElaraParser.TypeClassDeclarationCont
     val body = typeClassDeclaration.typeClassBody()
     val members = body.typeClassValue().map {
         val name =
-            it.defClause().variableIdentifier().operatorVariable()?.operatorIdentifier()?.text ?: it.defClause().variableIdentifier().text
+            it.defClause().variableIdentifier().operatorVariable()?.operatorIdentifier()?.text ?: it.defClause()
+                .variableIdentifier().text
         val type = getType(it.defClause().type(), context)
         TypeClass.TypeClassMember(name, type)
     }
     val typeClass = TypeClass(typeClassName, members)
     members.forEach {
         val type = TypeClassConstraint(typeClass, parameter, it.type)
-        context.variables[it.name] = Value(
+        context.registerVariable(it.name, Value(
             type,
-            ElaraFunction(it.type as FunctionType, { context, args ->
-                val argType = args[0].type
-                val instance = context.instances[typeClass]?.get(argType)
-                    ?: throw IllegalArgumentException("No instance of $typeClassName for $type")
-                (instance.members[it]!!.value as ElaraFunction).call(context, args)
-            })
-        )
+            ElaraFunction(it.type as FunctionType, "a") { context, arg ->
+                val argType = arg.type
+                val instance = context.getInstance(typeClass, argType)
+                (instance.members[it]!!.value as ElaraFunction).call(context, arg)
+            }
+        ))
     }
 
-    context.types[typeClassName] = typeClass
+    context.registerType(typeClassName, typeClass)
 }
 
 private fun interpret(typeDeclarationContext: ElaraParser.TypeDeclarationContext, context: ElaraContext)
@@ -89,7 +100,7 @@ private fun interpret(typeDeclarationContext: ElaraParser.TypeDeclarationContext
         }
         else -> throw UnsupportedOperationException(value.javaClass.name)
     }
-    context.types[name] = type
+    context.registerType(name, type)
 }
 
 private fun interpret(variable: ElaraParser.VariableContext, context: ElaraContext)
@@ -102,24 +113,59 @@ private fun interpret(variable: ElaraParser.VariableContext, context: ElaraConte
     {
         throw IllegalArgumentException("Def name does not match variable name")
     }
-    val value = interpret(let.expression(), context)
-    if (def != null)
+    val parameters = let.VarIdentifier()
+    val value = if (parameters.isNotEmpty())
     {
-        val type = getType(def.type(), context)
-        if (!type.isAssignableTo(value.type))
-        {
-            throw IllegalArgumentException("Type mismatch, expected $type but got ${value.type}")
+        var paramType: ElaraType
+        paramType = GenericType(parameters.first().text)
+
+        parameters.drop(1).forEach {
+            paramType = PureFunctionType(paramType, GenericType(it.text))
         }
+        val fType = PureFunctionType(paramType, GenericType("returns"))
+        val function = ElaraFunction(fType, parameters[0].text) { context2, _ ->
+            interpret(let.letBody(), context2)
+        }
+        Value(fType, function)
+    } else
+    {
+        val value = interpret(let.letBody(), context)
+        if (def != null)
+        {
+            val type = getType(def.type(), context)
+            if (!type.isAssignableTo(value.type))
+            {
+                throw IllegalArgumentException("Type mismatch, expected $type but got ${value.type}")
+            }
+        }
+        value
     }
-    context.variables[varName] = value
+    context.registerVariable(varName, value)
+}
+
+private fun interpret(letBody: ElaraParser.LetBodyContext, context: ElaraContext): Value
+{
+    return if (letBody.block() != null)
+    {
+        interpret(letBody.block(), context)
+    } else
+    {
+        interpret(letBody.expression(), context)
+    }
+}
+
+private fun interpret(block: ElaraParser.BlockContext, context: ElaraContext): Value
+{
+    return block.elaraLine().mapNotNull {
+        interpret(it, context)
+    }.first()
 }
 
 private fun getType(type: ElaraParser.TypeContext, context: ElaraContext): ElaraType
 {
     return when (type)
     {
-        is ElaraParser.SimpleTypeContext -> context.types[type.text]
-            ?: throw IllegalArgumentException("Unknown type: ${type.text}")
+        is ElaraParser.SimpleTypeContext -> context.getType(type.text)
         is ElaraParser.UnitTypeContext -> UnitType
         is ElaraParser.ListTypeContext -> ListType(getType(type.type(), context))
         is ElaraParser.PureFunctionTypeContext -> PureFunctionType(
@@ -136,8 +182,8 @@ private fun interpret(expression: ElaraParser.ExpressionContext, context: ElaraC
     {
         is ElaraParser.ParenExpressionContext -> interpret(expression.expression(), context)
         is ElaraParser.UnitExpressionContext -> Value(UnitType, Unit)
-        is ElaraParser.StringExpressionContext -> Value(ListType(CharType),
-            expression.StringLiteral().text.removeSurrounding("\""))
+        is ElaraParser.StringExpressionContext -> Value(StringType,
+            expression.StringLiteral().text.removeSurrounding("\"").toConsList())
         is ElaraParser.IntExpressionContext -> Value(IntType, expression.IntegerLiteral().text.toInt())
         is ElaraParser.CharExpressionContext -> Value(CharType, expression.CharLiteral().text[1])
         is ElaraParser.FloatExpressionContext -> Value(FloatType, expression.FloatLiteral().text.toFloat())
@@ -177,29 +223,30 @@ private fun interpret(expression: ElaraParser.ExpressionContext, context: ElaraC
         }
         is ElaraParser.FunctionApplicationExpressionContext ->
         {
-            val function = interpret(expression.expression().first(), context)
+            val function = interpret(expression.expression(0), context)
             if (function.type !is FunctionType)
             {
                 throw IllegalArgumentException("Not a function")
             }
-            val args = expression.expression().drop(1).map { interpret(it, context) }
-            (function.value as ElaraFunction).call(context, args)
+            val arg = interpret(expression.arg, context)
+            val f = (function.value as ElaraFunction)
+            f.call(context, arg)
         }
         is ElaraParser.VariableExpressionContext ->
         {
             val variable = expression.variableIdentifier().operatorVariable()?.operatorIdentifier()?.text
                 ?: expression.variableIdentifier().text
-            context.variables[variable]
-                ?: throw IllegalArgumentException("Unknown variable: $variable")
+            context.getVariable(variable)
         }
         is ElaraParser.OperatorApplicationExpressionContext ->
         {
             val left = interpret(expression.expression().first(), context)
             val right = interpret(expression.expression().last(), context)
-            val op = context.variables[expression.operatorIdentifier().text]
+            val op = runCatching { context.getVariable(expression.operatorIdentifier().text) }
+                .getOrNull()
                 ?: throw IllegalArgumentException("Unknown operator: ${expression.operatorIdentifier().text}")
 
-            (op.value as ElaraFunction).call(context, listOf(left, right))
+            ((op.value as ElaraFunction).call(context, left).value as ElaraFunction).call(context, right)
         }
         else -> throw UnsupportedOperationException(expression.javaClass.name)
     }

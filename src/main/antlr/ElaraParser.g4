@@ -3,7 +3,8 @@ parser grammar ElaraParser;
 options { tokenVocab=ElaraLexer; }
 
 defClause : Def variableIdentifier Colon type separator;
-letClause : Let variableIdentifier Equals expression separator;
+letClause : Let variableIdentifier VarIdentifier* Equals letBody;
+letBody : block | (expression separator);
 variable : (defClause)? letClause;
 
 operatorIdentifier : OperatorIdentifier+ ;
@@ -14,7 +15,7 @@ typeIdentifier : VarIdentifier ;
 
 unit : LParen RParen;
 
-separator : (NewLine | Semicolon)+;
+separator : (NewLine | Semicolon);
 
 // Types
 type : unit #UnitType
@@ -60,8 +61,11 @@ blockClose : DEDENT ;
 
 // Expressions
 
+block : blockOpen elaraLine+ blockClose;
+
 expression :
-    unit #UnitExpression
+    expression (arg = expression) #FunctionApplicationExpression
+    | unit #UnitExpression
     | IntegerLiteral #IntExpression
     | FloatLiteral #FloatExpression
     | CharLiteral #CharExpression
@@ -69,20 +73,21 @@ expression :
     | LSquareParen (expression (Comma expression)*)? RSquareParen #ListExpression
     | LParen expression RParen #ParenExpression
     | LParen (expression (Comma expression)+) RParen #TupleExpression
-    | expression (<assoc=left> expression)+ #FunctionApplicationExpression
     | expression operatorIdentifier expression #OperatorApplicationExpression
     | variableIdentifier # VariableExpression
 ;
 
-// A complete compilation unit
-elaraLine :
-    variable #VariableLine
-    | typeDeclaration # TypeDeclarationLine
-    | expression # ExpressionLine
-    | typeClassDeclaration #TypeClassDeclarationLine
-    | typeClassInstanceDeclaration # TypeClassInstanceDeclarationLine
+statement :
+    variable # VariableDeclarationStatement
+    | typeDeclaration # TypeDeclarationStatement
+    | typeClassDeclaration # TypeClassDeclarationStatement
+    | typeClassInstanceDeclaration # TypeClassInstanceDeclarationStatement
     ;
 
-//line : elaraLine;
+// A complete compilation unit
+elaraLine :
+      expression separator # ExpressionLine
+    | statement # StatementLine
+    ;
 
 elaraFile : elaraLine*;
