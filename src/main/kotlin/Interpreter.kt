@@ -35,7 +35,7 @@ private fun interpret(
     val instance = TypeClassInstance(clazz, type,
         typeClassInstanceDeclaration.typeClassInstanceBody().variable()
             .associate {
-                val name = it.letClause().variableIdentifier().text
+                val name = getVariableIdentifier(it.letClause().variableIdentifier())
                 clazz.members.find { it.name == name }!! to interpret(it.letClause().expression(), context)
             }
     )
@@ -43,6 +43,10 @@ private fun interpret(
     context.instances[clazz] = instances
 }
 
+private fun getVariableIdentifier(identifier: ElaraParser.VariableIdentifierContext): String
+{
+    return identifier.operatorVariable()?.operatorIdentifier()?.text ?: identifier.text
+}
 
 private fun interpret(typeClassDeclaration: ElaraParser.TypeClassDeclarationContext, context: ElaraContext)
 {
@@ -51,13 +55,26 @@ private fun interpret(typeClassDeclaration: ElaraParser.TypeClassDeclarationCont
 
     val body = typeClassDeclaration.typeClassBody()
     val members = body.typeClassValue().map {
-        val name = it.defClause().variableIdentifier().text
+        val name =
+            it.defClause().variableIdentifier().operatorVariable()?.operatorIdentifier()?.text ?: it.defClause().variableIdentifier().text
         val type = getType(it.defClause().type(), context)
         TypeClass.TypeClassMember(name, type)
     }
+    val typeClass = TypeClass(typeClassName, members)
+    members.forEach {
+        val type = TypeClassConstraint(typeClass, parameter, it.type)
+        context.variables[it.name] = Value(
+            type,
+            ElaraFunction(it.type as FunctionType, { context, args ->
+                val argType = args[0].type
+                val instance = context.instances[typeClass]?.get(argType)
+                    ?: throw IllegalArgumentException("No instance of $typeClassName for $type")
+                (instance.members[it]!!.value as ElaraFunction).call(context, args)
+            })
+        )
+    }
 
-
-    context.types[typeClassName] = TypeClass(typeClassName, members)
+    context.types[typeClassName] = typeClass
 }
 
 private fun interpret(typeDeclarationContext: ElaraParser.TypeDeclarationContext, context: ElaraContext)
@@ -79,7 +96,8 @@ private fun interpret(variable: ElaraParser.VariableContext, context: ElaraConte
 {
     val def = variable.defClause()
     val let = variable.letClause()
-    val varName = let.variableIdentifier().operatorVariable()?.operatorIdentifier()?.text ?: let.variableIdentifier().text
+    val varName =
+        let.variableIdentifier().operatorVariable()?.operatorIdentifier()?.text ?: let.variableIdentifier().text
     if (def != null && varName != def.variableIdentifier().text)
     {
         throw IllegalArgumentException("Def name does not match variable name")
