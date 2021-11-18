@@ -41,7 +41,7 @@ sumType : typeConstructor (Bar typeConstructor)*;
 recordTypeField : VarIdentifier Colon type;
 recordType : LBrace recordTypeField (Comma recordTypeField)* RBrace;
 
-typeDeclaration : Type TypeIdentifier typeIdentifier* Equals typeDeclarationValue;
+typeDeclaration : Type TypeIdentifier typeIdentifier* Equals typeDeclarationValue NewLine;
 typeDeclarationValue :
     typeAlias #TypeAliasValue
     | sumType #SumTypeValue
@@ -52,8 +52,8 @@ typeClassDeclaration : Type Class TypeIdentifier typeIdentifier Where typeClassB
 typeClassBody : blockOpen typeClassValue* blockClose;
 typeClassValue : defClause | variable;
 
-typeClassInstanceDeclaration : Instance TypeIdentifier TypeIdentifier Where typeClassInstanceBody;
-typeClassInstanceBody : blockOpen variable blockClose;
+typeClassInstanceDeclaration : Instance TypeIdentifier type Where typeClassInstanceBody;
+typeClassInstanceBody : blockOpen variable* blockClose;
 
 blockOpen : INDENT ;
 blockClose : DEDENT ;

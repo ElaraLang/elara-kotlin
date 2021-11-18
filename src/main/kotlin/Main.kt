@@ -5,14 +5,16 @@ import org.antlr.v4.runtime.atn.PredictionMode
 fun main()
 {
     val code = """
+        type String = [Char]
         type class Sum a where
            def (+) : a -> a -> a
         
         instance Sum String where
             let (+) = (++)
+            
+        print ("hello" + "world")
         """.trimIndent()
 
-    println(code)
     val lexer = ElaraLexer(CharStreams.fromString(code))
     val parser = ElaraParser(CommonTokenStream(lexer))
 

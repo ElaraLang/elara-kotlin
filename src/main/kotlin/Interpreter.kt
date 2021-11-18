@@ -16,10 +16,33 @@ private fun interpret(line: ElaraParser.ElaraLineContext, context: ElaraContext)
         is ElaraParser.TypeDeclarationLineContext -> interpret(line.typeDeclaration(), context)
         is ElaraParser.ExpressionLineContext -> interpret(line.expression(), context)
         is ElaraParser.TypeClassDeclarationLineContext -> interpret(line.typeClassDeclaration(), context)
+        is ElaraParser.TypeClassInstanceDeclarationLineContext -> interpret(line.typeClassInstanceDeclaration(),
+            context)
         else -> throw UnsupportedOperationException(line.javaClass.name)
     }
 
 }
+
+private fun interpret(
+    typeClassInstanceDeclaration: ElaraParser.TypeClassInstanceDeclarationContext,
+    context: ElaraContext,
+)
+{
+    val clazz = context.types[typeClassInstanceDeclaration.TypeIdentifier().text] as? TypeClass
+        ?: throw IllegalArgumentException("Not a type class")
+    val type = getType(typeClassInstanceDeclaration.type(), context)
+    val instances = (context.instances[clazz] ?: mapOf()).toMutableMap()
+    val instance = TypeClassInstance(clazz, type,
+        typeClassInstanceDeclaration.typeClassInstanceBody().variable()
+            .associate {
+                val name = it.letClause().variableIdentifier().text
+                clazz.members.find { it.name == name }!! to interpret(it.letClause().expression(), context)
+            }
+    )
+    instances[type] = instance
+    context.instances[clazz] = instances
+}
+
 
 private fun interpret(typeClassDeclaration: ElaraParser.TypeClassDeclarationContext, context: ElaraContext)
 {
@@ -32,6 +55,7 @@ private fun interpret(typeClassDeclaration: ElaraParser.TypeClassDeclarationCont
         val type = getType(it.defClause().type(), context)
         TypeClass.TypeClassMember(name, type)
     }
+
 
     context.types[typeClassName] = TypeClass(typeClassName, members)
 }
@@ -55,7 +79,7 @@ private fun interpret(variable: ElaraParser.VariableContext, context: ElaraConte
 {
     val def = variable.defClause()
     val let = variable.letClause()
-    val varName = let.variableIdentifier().text
+    val varName = let.variableIdentifier().operatorVariable()?.operatorIdentifier()?.text ?: let.variableIdentifier().text
     if (def != null && varName != def.variableIdentifier().text)
     {
         throw IllegalArgumentException("Def name does not match variable name")
@@ -145,7 +169,8 @@ private fun interpret(expression: ElaraParser.ExpressionContext, context: ElaraC
         }
         is ElaraParser.VariableExpressionContext ->
         {
-            val variable = expression.variableIdentifier().text
+            val variable = expression.variableIdentifier().operatorVariable()?.operatorIdentifier()?.text
+                ?: expression.variableIdentifier().text
             context.variables[variable]
                 ?: throw IllegalArgumentException("Unknown variable: $variable")
         }

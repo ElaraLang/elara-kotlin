@@ -21,26 +21,20 @@ class ElaraContext
                         Value(StringType, line)
                 })
         },
-        "+" to PureFunctionType(IntType, PureFunctionType(IntType, IntType)).let { type ->
-            Value(type,
-                ElaraFunction(type) { _, args ->
-                    val first = args[0].value
-                    val second = args[1].value
-                    if (first is String || second is String)
-                    {
-                        Value(StringType, first.toString() + second.toString())
-                    } else if (first is Number && second is Number)
-                    {
-                        Value(if (first is Int) IntType else FloatType, first.toDouble() + second.toDouble())
-                    } else
-                    {
-                        throw IllegalArgumentException("Cannot add ${first.javaClass.name} and ${second.javaClass.name}")
-                    }
+        "++" to GenericType("a").let { a ->
+            PureFunctionType(ListType(a), PureFunctionType(a, a)).let { type ->
+                Value(type, ElaraFunction(type) { _, args ->
+                    val first = args[0].value as List<*>
+                    val second = args[1].value as List<*>
+                    val copy = first + second
+                    Value(a, copy)
                 })
-        },
+            }
+        }
     )
 
-    val instances = mutableMapOf<TypeClass, TypeClassInstance>()
+
+    val instances = mutableMapOf<TypeClass, Map<ElaraType, TypeClassInstance>>()
 
     val types = mutableMapOf(
         "Int" to IntType,
