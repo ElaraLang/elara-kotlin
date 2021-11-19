@@ -224,13 +224,24 @@ private fun interpret(expression: ElaraParser.ExpressionContext, context: ElaraC
         is ElaraParser.FunctionApplicationExpressionContext ->
         {
             val function = interpret(expression.expression(0), context)
-            if (function.type !is FunctionType)
+            fun call(function: Value, args: List<Value>): Value
             {
-                throw IllegalArgumentException("Not a function")
+                if (function.type !is FunctionType)
+                {
+                    throw IllegalArgumentException("Not a function")
+                }
+                val f = (function.value as ElaraFunction)
+                val arg = args[0]
+                val res = f.call(context, arg)
+                if (args.size > 1)
+                {
+                    return call(res, args.drop(1))
+                }
+                return res
             }
-            val arg = interpret(expression.arg, context)
-            val f = (function.value as ElaraFunction)
-            f.call(context, arg)
+            val args = expression.expression().drop(1).map { interpret(it, context) }
+            call(function, args)
+
         }
         is ElaraParser.VariableExpressionContext ->
         {

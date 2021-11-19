@@ -64,8 +64,7 @@ blockClose : DEDENT ;
 block : blockOpen elaraLine+ blockClose;
 
 expression :
-    expression (arg = expression) #FunctionApplicationExpression
-    | unit #UnitExpression
+      unit #UnitExpression
     | IntegerLiteral #IntExpression
     | FloatLiteral #FloatExpression
     | CharLiteral #CharExpression
@@ -74,6 +73,7 @@ expression :
     | LParen expression RParen #ParenExpression
     | LParen (expression (Comma expression)+) RParen #TupleExpression
     | expression operatorIdentifier expression #OperatorApplicationExpression
+    | expression expression+ #FunctionApplicationExpression
     | variableIdentifier # VariableExpression
 ;
 
