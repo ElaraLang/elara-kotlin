@@ -7,10 +7,10 @@ import type.TypeClassInstance
 
 interface Scope
 {
+
     fun registerInstance(typeClass: TypeClass, instance: TypeClassInstance)
 
     fun getInstance(typeClass: TypeClass, type: ElaraType): TypeClassInstance?
-
 
     fun registerType(name: String, type: ElaraType)
 

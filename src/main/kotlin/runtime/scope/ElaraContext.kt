@@ -8,6 +8,7 @@ import java.util.*
 
 class ElaraContext : Scope
 {
+
     private val scopes: Deque<Scope> = ArrayDeque(listOf(GlobalScope))
 
     override fun registerInstance(typeClass: TypeClass, instance: TypeClassInstance)
@@ -17,7 +18,8 @@ class ElaraContext : Scope
 
     override fun getInstance(typeClass: TypeClass, type: ElaraType): TypeClassInstance
     {
-        return scopes.firstNotNullOfOrNull { it.getInstance(typeClass, type) } ?: throw IllegalStateException("No instance of $typeClass for $type found")
+        return scopes.firstNotNullOfOrNull { it.getInstance(typeClass, type) }
+            ?: throw IllegalStateException("No instance of $typeClass for $type found")
     }
 
     override fun registerType(name: String, type: ElaraType)
@@ -32,20 +34,24 @@ class ElaraContext : Scope
 
     override fun getType(name: String): ElaraType
     {
-        return scopes.firstNotNullOfOrNull { it.getType(name) } ?: throw IllegalStateException("No type named $name found")
+        return scopes.firstNotNullOfOrNull { it.getType(name) }
+            ?: throw IllegalStateException("No type named $name found")
     }
 
     override fun getVariable(name: String): Value
     {
-        return scopes.firstNotNullOfOrNull { it.getVariable(name) } ?: throw IllegalStateException("No variable named $name found")
+        return scopes.firstNotNullOfOrNull { it.getVariable(name) }
+            ?: throw IllegalStateException("No variable named $name found")
     }
 
     override val variables: Map<String, Value>
         get() = scopes.peek().variables
 
-    fun enterScope(name: String)
+    fun enterScope(name: String) : Scope
     {
-        scopes.addFirst(ElaraScope(name))
+        val elaraScope = ElaraScope(name)
+        scopes.addFirst(elaraScope)
+        return elaraScope
     }
 
     fun exitScope(): Scope
@@ -53,4 +59,8 @@ class ElaraContext : Scope
         return scopes.pop()
     }
 
+    fun highestScope(): Scope
+    {
+        return scopes.peek()
+    }
 }

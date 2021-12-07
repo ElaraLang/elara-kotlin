@@ -73,7 +73,7 @@ expression :
     | LParen expression RParen #ParenExpression
     | LParen (expression (Comma expression)+) RParen #TupleExpression
     | expression operatorIdentifier expression #OperatorApplicationExpression
-    | expression expression+ #FunctionApplicationExpression
+    | expression expression #FunctionApplicationExpression
     | variableIdentifier # VariableExpression
 ;
 

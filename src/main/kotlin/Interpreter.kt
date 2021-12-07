@@ -1,3 +1,4 @@
+import org.antlr.v4.runtime.tree.TerminalNode
 import runtime.ConsList.Companion.toConsList
 import runtime.Value
 import runtime.scope.ElaraContext
@@ -116,17 +117,29 @@ private fun interpret(variable: ElaraParser.VariableContext, context: ElaraConte
     val parameters = let.VarIdentifier()
     val value = if (parameters.isNotEmpty())
     {
-        var paramType: ElaraType
-        paramType = GenericType(parameters.first().text)
-
-        parameters.drop(1).forEach {
-            paramType = PureFunctionType(paramType, GenericType(it.text))
+        fun createFunction(parameters: List<TerminalNode>): Value
+        {
+            if (parameters.isEmpty())
+            {
+                error("empty params")
+            }
+            if (parameters.size == 1)
+            {
+                val param = parameters[0].text
+                val type = PureFunctionType(GenericType(param), GenericType("Any"))
+                return Value(type, ElaraFunction(type, param) { context, _ ->
+                    interpret(let.letBody(), context)
+                })
+            }
+            val head = parameters[0].text
+            val tail = parameters.drop(1)
+            val f = createFunction(tail)
+            val type = PureFunctionType(GenericType(head), f.type)
+            return Value(type, ElaraFunction(type, head) { _, _ ->
+                f
+            })
         }
-        val fType = PureFunctionType(paramType, GenericType("returns"))
-        val function = ElaraFunction(fType, parameters[0].text) { context2, _ ->
-            interpret(let.letBody(), context2)
-        }
-        Value(fType, function)
+        createFunction(parameters)
     } else
     {
         val value = interpret(let.letBody(), context)
@@ -239,7 +252,10 @@ private fun interpret(expression: ElaraParser.ExpressionContext, context: ElaraC
                 }
                 return res
             }
-            val args = expression.expression().drop(1).map { interpret(it, context) }
+
+            val args = expression.expression().drop(1).map {
+                interpret(it, context)
+            }
             call(function, args)
 
         }
