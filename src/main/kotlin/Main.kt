@@ -1,4 +1,3 @@
-import org.antlr.v4.gui.Trees
 import org.antlr.v4.runtime.CharStreams
 import org.antlr.v4.runtime.CommonTokenStream
 import org.antlr.v4.runtime.atn.PredictionMode
@@ -6,10 +5,8 @@ import org.antlr.v4.runtime.atn.PredictionMode
 fun main()
 {
     val code = """
-        let printTwice msg msg2 =
-            print msg
-            print msg2
-        printTwice "a" "b"
+        let a = 3
+        a |> print |> print
         """.trimIndent()
 
 
