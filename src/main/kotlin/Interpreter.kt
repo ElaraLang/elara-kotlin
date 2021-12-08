@@ -111,9 +111,14 @@ private fun interpret(variable: ElaraParser.VariableContext, context: ElaraConte
     val let = variable.letClause()
     val varName =
         let.variableIdentifier().operatorVariable()?.operatorIdentifier()?.text ?: let.variableIdentifier().text
-    if (def != null && varName != def.variableIdentifier().text)
+    if (def != null)
     {
-        throw IllegalArgumentException("Def name does not match variable name")
+        val defName =
+            def.variableIdentifier().operatorVariable()?.operatorIdentifier()?.text ?: def.variableIdentifier().text
+        if (varName != defName)
+        {
+            throw IllegalArgumentException("Def name $defName does not match variable name $varName")
+        }
     }
     val parameters = let.VarIdentifier()
     val value = if (parameters.isNotEmpty())

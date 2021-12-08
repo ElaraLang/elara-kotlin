@@ -6,8 +6,9 @@ fun main()
 {
     val code = """
         let a = 3
+        def (|>) : a -> (a -> b) -> b
         let (|>) a f = f a
-        a |> print |> print
+        a |> print
         """.trimIndent()
 
 
