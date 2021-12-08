@@ -105,7 +105,7 @@ class ElaraFunction(val type: FunctionType, val parameterName: String, val body:
 {
     override fun toString(): String
     {
-        return "#Function"
+        return "$parameterName : $type"
     }
 
     var closure: Scope? = null

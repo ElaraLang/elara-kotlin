@@ -8,7 +8,7 @@ fun main()
         let a = 3
         def (|>) : a -> (a -> b) -> b
         let (|>) a f = f a
-        a |> print
+        let x = a |> print |> (|>)
         """.trimIndent()
 
 
