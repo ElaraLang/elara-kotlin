@@ -2,6 +2,7 @@ import org.antlr.v4.runtime.tree.TerminalNode
 import runtime.ConsList.Companion.toConsList
 import runtime.Value
 import runtime.scope.ElaraContext
+import runtime.scope.ElaraScope
 import type.*
 
 fun interpret(elaraFile: ElaraParser.ElaraFileContext, context: ElaraContext = ElaraContext()): ElaraContext
@@ -135,7 +136,10 @@ private fun interpret(variable: ElaraParser.VariableContext, context: ElaraConte
             val tail = parameters.drop(1)
             val f = createFunction(tail)
             val type = PureFunctionType(GenericType(head), f.type)
-            return Value(type, ElaraFunction(type, head) { _, _ ->
+            return Value(type, ElaraFunction(type, head) { _, param ->
+                (f.value as ElaraFunction).closure = ElaraScope(type.toString()).apply {
+                    registerVariable(head, param)
+                }
                 f
             })
         }

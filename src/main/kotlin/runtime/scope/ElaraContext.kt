@@ -54,6 +54,10 @@ class ElaraContext : Scope
         return elaraScope
     }
 
+    fun enterScope(scope: Scope) {
+        scopes.addFirst(scope)
+    }
+
     fun exitScope(): Scope
     {
         return scopes.pop()

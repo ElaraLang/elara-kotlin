@@ -2,6 +2,7 @@ package type
 
 import runtime.Value
 import runtime.scope.ElaraContext
+import runtime.scope.Scope
 
 sealed interface ElaraType
 {
@@ -107,27 +108,15 @@ class ElaraFunction(val type: FunctionType, val parameterName: String, val body:
         return "#Function"
     }
 
+    var closure: Scope? = null
+
     fun call(context: ElaraContext, argument: Value): Value
     {
         val name = type.toString()
-        val scope = context.enterScope(name)
+        closure?.let { context.enterScope(it) } ?: context.enterScope(name)
         context.registerVariable(parameterName, argument)
         val res = body(context, argument)
-        if (res.type is FunctionType)
-        {
-            // don't exit the scope
-            return res
-        }
-        // keep popping until we exit this scope
-        if (context.highestScope() === scope)
-        {
-            context.exitScope()
-            return res
-        }
-        do {
-            context.exitScope()
-        }
-        while (context.highestScope() !== scope)
+        context.exitScope()
         return res
     }
 }
