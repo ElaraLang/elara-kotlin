@@ -37,6 +37,7 @@ val GlobalScope = ElaraScope("#Global")
                 })
         })
 
+        registerVariable("true", Value(GenericType("Boolean"), true))
         registerVariable("++", GenericType("a").let { a ->
             PureFunctionType(ListType(a), PureFunctionType(a, a)).let { type ->
                 Value(type, ElaraFunction(type, "left") { _, left ->

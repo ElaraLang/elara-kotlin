@@ -4,18 +4,18 @@ options { tokenVocab=ElaraLexer; }
 
 defClause : Def variableIdentifier Colon type separator;
 letClause : Let variableIdentifier VarIdentifier* Equals letBody;
-letBody : block | (expression separator);
-variable : (defClause)? letClause;
+letBody : (expression separator) | block;
+variable : defClause? letClause;
 
 operatorIdentifier : OperatorIdentifier+ ;
 operatorVariable : '(' operatorIdentifier ')' ;
 variableIdentifier : VarIdentifier | operatorVariable ;
 
-typeIdentifier : VarIdentifier ;
+typeIdentifier : VarIdentifier;
 
 unit : LParen RParen;
 
-separator : (NewLine | Semicolon);
+separator : NewLine | Semicolon;
 
 // Types
 type : unit #UnitType
@@ -75,19 +75,19 @@ expression :
     | expression operatorIdentifier expression #OperatorApplicationExpression
     | expression expression #FunctionApplicationExpression
     | variableIdentifier # VariableExpression
+    | If (expression|block) Then (expression|block) Else (expression|block) #IfElseExpression
 ;
 
 statement :
     variable # VariableDeclarationStatement
+    | expression separator? #ExpressionStatement
     | typeDeclaration # TypeDeclarationStatement
     | typeClassDeclaration # TypeClassDeclarationStatement
     | typeClassInstanceDeclaration # TypeClassInstanceDeclarationStatement
     ;
 
 // A complete compilation unit
-elaraLine :
-      expression separator # ExpressionLine
-    | statement # StatementLine
+elaraLine : statement
     ;
 
 elaraFile : elaraLine*;

@@ -48,6 +48,9 @@ Type: 'type';
 Class: 'class';
 Where: 'where';
 Instance: 'instance';
+If: 'if';
+Else: 'else';
+Then: 'then';
 
 // Symbols
 Comma: ',';

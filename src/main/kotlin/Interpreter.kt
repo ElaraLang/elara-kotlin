@@ -1,3 +1,4 @@
+import org.antlr.v4.runtime.ParserRuleContext
 import org.antlr.v4.runtime.tree.TerminalNode
 import runtime.ConsList.Companion.toConsList
 import runtime.Value
@@ -15,16 +16,18 @@ fun interpret(elaraFile: ElaraParser.ElaraFileContext, context: ElaraContext = E
 
 private fun interpret(line: ElaraParser.ElaraLineContext, context: ElaraContext): Value?
 {
-    when (line)
-    {
-        is ElaraParser.StatementLineContext -> interpret(line.statement(), context)
-        is ElaraParser.ExpressionLineContext -> return interpret(line.expression(), context)
-        else -> throw UnsupportedOperationException(line.javaClass.name)
-    }
+    return interpret(line.statement(), context)
+//    when (line)
+//    {
+//
+//        is ElaraParser.StatementLineContext -> interpret(line.statement(), context)
+//        is ElaraParser.ExpressionLineContext -> return interpret(line.expression(), context)
+//        else -> throw UnsupportedOperationException(line.javaClass.name)
+//    }
     return null
 }
 
-fun interpret(statement: ElaraParser.StatementContext, context: ElaraContext)
+fun interpret(statement: ElaraParser.StatementContext, context: ElaraContext) : Value?
 {
     when (statement)
     {
@@ -33,8 +36,10 @@ fun interpret(statement: ElaraParser.StatementContext, context: ElaraContext)
         is ElaraParser.TypeClassInstanceDeclarationStatementContext -> interpret(statement.typeClassInstanceDeclaration(),
             context)
         is ElaraParser.VariableDeclarationStatementContext -> interpret(statement.variable(), context)
+        is ElaraParser.ExpressionStatementContext -> return interpret(statement.expression(), context)
         else -> throw UnsupportedOperationException(statement.javaClass.name)
     }
+    return null
 }
 
 private fun interpret(
@@ -167,13 +172,7 @@ private fun interpret(variable: ElaraParser.VariableContext, context: ElaraConte
 
 private fun interpret(letBody: ElaraParser.LetBodyContext, context: ElaraContext): Value
 {
-    return if (letBody.block() != null)
-    {
-        interpret(letBody.block(), context)
-    } else
-    {
-        interpret(letBody.expression(), context)
-    }
+    return interpret(letBody.expression(), context)
 }
 
 private fun interpret(block: ElaraParser.BlockContext, context: ElaraContext): Value
@@ -209,6 +208,7 @@ private fun interpret(expression: ElaraParser.ExpressionContext, context: ElaraC
         is ElaraParser.IntExpressionContext -> Value(IntType, expression.IntegerLiteral().text.toInt())
         is ElaraParser.CharExpressionContext -> Value(CharType, expression.CharLiteral().text[1])
         is ElaraParser.FloatExpressionContext -> Value(FloatType, expression.FloatLiteral().text.toFloat())
+//        is ElaraParser.BlockExpressionContext -> interpret(expression.block(), context)
         is ElaraParser.ListExpressionContext ->
         {
             val values = expression.expression().map { interpret(it, context) }
@@ -284,6 +284,26 @@ private fun interpret(expression: ElaraParser.ExpressionContext, context: ElaraC
 
             ((op.value as ElaraFunction).call(context, left).value as ElaraFunction).call(context, right)
         }
+        is ElaraParser.IfElseExpressionContext ->
+        {
+            val clause = expression.expression(0)
+            val thenVal = expression.expression(1) ?: expression.block(0)
+            val elseVal = expression.expression(2) ?: expression.block(1)
+
+            if (interpret(clause, context).value as Boolean)
+            {
+                interpret(thenVal, context)
+            } else
+            {
+                interpret(elseVal, context)
+            }
+        }
         else -> throw UnsupportedOperationException(expression.javaClass.name)
     }
+}
+
+fun interpret(line: ParserRuleContext, context: ElaraContext): Value
+{
+    return if (line is ElaraParser.BlockContext) interpret(line, context)
+    else interpret(line as ElaraParser.ExpressionContext, context)
 }
