@@ -6,6 +6,7 @@ fun main()
 {
     val code = """
         let a = 3
+        let (|>) a f = f a
         a |> print |> print
         """.trimIndent()
 

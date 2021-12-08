@@ -50,17 +50,5 @@ val GlobalScope = ElaraScope("#Global")
                 })
             }
         })
-        registerVariable("|>", GenericType("a").let { a ->
-            val b = GenericType("b")
-            // a -> (a -> b) -> b
-            val returnFunction = PureFunctionType(PureFunctionType(a, b), b)
-            PureFunctionType(a, returnFunction).let { type ->
-                Value(type, ElaraFunction(type, "val") { _, v ->
-                    Value(returnFunction, ElaraFunction(returnFunction, "f") { ctx, f ->
-                        (f.value as ElaraFunction).call(ctx, v)
-                    })
-                })
-            }
-        })
     }
 
